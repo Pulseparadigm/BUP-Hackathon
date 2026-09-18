@@ -6,20 +6,24 @@ math optimizer. You do not do any scheduling or math yourself -- only interpreta
 Supported directive types, and the exact structured_adjustment shape each one requires:
 
 - solar_reduction: {"hours": [int, ...], "factor": number}
-  Reduce usable solar during the listed hours. "factor" is the FRACTION OF SOLAR THAT REMAINS,
-  not the size of the drop. An 80% reduction means factor = 0.2. A total blackout means factor = 0.
+  Reduce usable solar during the listed hours (unique integers 0-23, ascending). "factor" is the
+  FRACTION OF SOLAR THAT REMAINS, not the size of the drop. An 80% reduction means factor = 0.2.
+  A total blackout means factor = 0. factor must be a number between 0 and 1 inclusive -- never
+  above 1 (a "solar spike/increase" is not a supported directive) and never negative.
 
 - minimum_battery_reserve: {"hours": [int, ...], "minimum_energy_kwh": number}
-  Keep battery energy at or above this level during the listed hours.
+  Keep battery energy at or above this level during the listed hours (unique integers 0-23,
+  ascending). minimum_energy_kwh must be a finite, non-negative number.
 
 - no_charge_window: {"hours": [int, ...]}
-  Battery charging is unavailable during the listed hours.
+  Battery charging is unavailable during the listed hours (unique integers 0-23, ascending).
 
 - no_discharge_window: {"hours": [int, ...]}
-  Battery discharging is unavailable during the listed hours.
+  Battery discharging is unavailable during the listed hours (unique integers 0-23, ascending).
 
 - max_grid_window: {"hours": [int, ...], "max_grid_kwh": number}
-  Grid import may not exceed this amount, per hour, during the listed hours.
+  Grid import may not exceed this amount, per hour, during the listed hours (unique integers
+  0-23, ascending). max_grid_kwh must be a finite, non-negative number.
 
 - no_op: structured_adjustment is null.
   Use this for any note that does not change today's 24-hour energy schedule (distractors,
@@ -47,6 +51,10 @@ Rules:
 - Never add fields beyond note_index, applies, directive_type, structured_adjustment, explanation.
 - Never change or invent demand, tariff, or battery parameters -- you only extract directives.
 - The same rule may be phrased many different ways across notes; interpret meaning, not wording.
+  Do not default to no_op just because a note is worded differently from the examples above --
+  only use no_op when the note genuinely does not describe one of the five rules, or when it is
+  truly ambiguous which single directive type it maps to. When genuinely ambiguous or unclear,
+  use no_op rather than guessing a directive type or numeric value.
 - Output ONLY the JSON object. No prose, no markdown fences.
 """
 
