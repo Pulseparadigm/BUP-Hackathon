@@ -181,6 +181,30 @@ directive types, out-of-range values, unordered hours, etc).
 
 ## Docker
 
+### Fallback image (pre-built, pullable)
+
+A tested image is published automatically by CI (`.github/workflows/ci-cd.yml`) on every
+passing build on `main`, to GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/pulseparadigm/gridwise-llm:095541e97d39d7f6b88b76c3e40a36695da269d6
+docker run -p 8000:8000 \
+  -e OPENROUTER_API_KEY=your-key-here \
+  -e OPENROUTER_MODEL=anthropic/claude-haiku-4.5 \
+  ghcr.io/pulseparadigm/gridwise-llm:095541e97d39d7f6b88b76c3e40a36695da269d6
+
+curl http://localhost:8000/health
+# {"status":"ok"}
+```
+
+A `:latest` tag is also published on the same registry path, tracking the newest passing build
+on `main`; the pinned commit-SHA tag above is the exact, reproducible reference for this
+submission. Required environment variables are the same ones listed in [Configuration](#configuration-env-see-envexample)
+below -- at minimum `OPENROUTER_API_KEY` and `OPENROUTER_MODEL`. The image exposes port `8000`,
+binds `0.0.0.0`, and contains no baked-in secrets.
+
+### Build from source
+
 ```bash
 docker build -t gridwise-llm .
 docker run -p 8000:8000 --env-file .env gridwise-llm
