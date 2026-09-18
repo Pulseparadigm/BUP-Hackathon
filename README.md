@@ -104,26 +104,76 @@ curl http://localhost:8000/health
 # {"status":"ok"}
 ```
 
-Sample request (see `tests/data/public_sample_cases.json` for full worked cases):
+Public-sample test (copy-paste runnable -- this is `SAMPLE-01` from
+`BUP_CSE_FEST_2026_Preli_Public_Sample_Cases.json` verbatim, not illustrative data):
 
 ```bash
 curl -X POST http://localhost:8000/optimize-energy \
   -H "Content-Type: application/json" \
   -d '{
-    "scenario_id": "GRID-101",
+    "scenario_id": "SAMPLE-01",
     "operator_notes": [
-      "Solar output will drop to about 20% from 1 PM to 3 PM.",
-      "Do not charge the battery between 2 PM and 4 PM.",
-      "The cafeteria menu changes tomorrow."
+      "Facilities will wash the rooftop solar panels from noon until 2 PM. During cleaning, usable solar should be treated as roughly 25% of the forecast.",
+      "The sports office moved next month'"'"'s registration deadline."
     ],
-    "hours": [ {"hour": 0, "demand_kwh": 180, "solar_kwh": 0, "tariff_bdt_per_kwh": 7}, "... 23 more ..." ],
+    "hours": [
+      {"hour": 0, "demand_kwh": 90, "solar_kwh": 0, "tariff_bdt_per_kwh": 6},
+      {"hour": 1, "demand_kwh": 85, "solar_kwh": 0, "tariff_bdt_per_kwh": 6},
+      {"hour": 2, "demand_kwh": 80, "solar_kwh": 0, "tariff_bdt_per_kwh": 5},
+      {"hour": 3, "demand_kwh": 80, "solar_kwh": 0, "tariff_bdt_per_kwh": 5},
+      {"hour": 4, "demand_kwh": 85, "solar_kwh": 0, "tariff_bdt_per_kwh": 5},
+      {"hour": 5, "demand_kwh": 95, "solar_kwh": 0, "tariff_bdt_per_kwh": 6},
+      {"hour": 6, "demand_kwh": 110, "solar_kwh": 5, "tariff_bdt_per_kwh": 8},
+      {"hour": 7, "demand_kwh": 130, "solar_kwh": 20, "tariff_bdt_per_kwh": 10},
+      {"hour": 8, "demand_kwh": 150, "solar_kwh": 50, "tariff_bdt_per_kwh": 12},
+      {"hour": 9, "demand_kwh": 165, "solar_kwh": 90, "tariff_bdt_per_kwh": 14},
+      {"hour": 10, "demand_kwh": 175, "solar_kwh": 130, "tariff_bdt_per_kwh": 16},
+      {"hour": 11, "demand_kwh": 180, "solar_kwh": 160, "tariff_bdt_per_kwh": 16},
+      {"hour": 12, "demand_kwh": 185, "solar_kwh": 180, "tariff_bdt_per_kwh": 15},
+      {"hour": 13, "demand_kwh": 180, "solar_kwh": 170, "tariff_bdt_per_kwh": 14},
+      {"hour": 14, "demand_kwh": 170, "solar_kwh": 140, "tariff_bdt_per_kwh": 13},
+      {"hour": 15, "demand_kwh": 165, "solar_kwh": 90, "tariff_bdt_per_kwh": 14},
+      {"hour": 16, "demand_kwh": 170, "solar_kwh": 45, "tariff_bdt_per_kwh": 18},
+      {"hour": 17, "demand_kwh": 185, "solar_kwh": 10, "tariff_bdt_per_kwh": 22},
+      {"hour": 18, "demand_kwh": 205, "solar_kwh": 0, "tariff_bdt_per_kwh": 28},
+      {"hour": 19, "demand_kwh": 215, "solar_kwh": 0, "tariff_bdt_per_kwh": 30},
+      {"hour": 20, "demand_kwh": 205, "solar_kwh": 0, "tariff_bdt_per_kwh": 26},
+      {"hour": 21, "demand_kwh": 175, "solar_kwh": 0, "tariff_bdt_per_kwh": 18},
+      {"hour": 22, "demand_kwh": 135, "solar_kwh": 0, "tariff_bdt_per_kwh": 10},
+      {"hour": 23, "demand_kwh": 105, "solar_kwh": 0, "tariff_bdt_per_kwh": 7}
+    ],
     "battery": {
-      "capacity_kwh": 500, "initial_energy_kwh": 200, "minimum_energy_kwh": 50,
-      "max_charge_kwh_per_hour": 100, "max_discharge_kwh_per_hour": 100
+      "capacity_kwh": 220, "initial_energy_kwh": 110, "minimum_energy_kwh": 40,
+      "max_charge_kwh_per_hour": 50, "max_discharge_kwh_per_hour": 50
     }
   }'
 ```
 
+Expected result (matches `SAMPLE-01`'s `expected_output` in the public sample pack exactly --
+`total_cost_bdt: 38365.0`, and the panel-washing note correctly extracted as `solar_reduction`
+while the unrelated registration-deadline note is correctly ignored as `no_op`):
+
+```json
+{
+  "scenario_id": "SAMPLE-01",
+  "directive_interpretation": [
+    {"note_index": 0, "applies": true, "directive_type": "solar_reduction",
+     "structured_adjustment": {"hours": [12, 13], "factor": 0.25}, "explanation": "..."},
+    {"note_index": 1, "applies": false, "directive_type": "no_op",
+     "structured_adjustment": null, "explanation": "..."}
+  ],
+  "hourly_plan": [ {"hour": 0, "grid_kwh": 40.0, "solar_used_kwh": 0.0,
+                     "battery_action": "discharge", "battery_kwh": 50.0,
+                     "battery_energy_after_kwh": 60.0}, "... 23 more hours ..." ],
+  "total_grid_kwh": 2692.5,
+  "total_cost_bdt": 38365.0,
+  "peak_grid_kwh": 187.5,
+  "plan_summary": "Least-cost 24h schedule applying solar_reduction: total grid cost 38365.00 BDT, peak hourly grid draw 187.50 kWh."
+}
+```
+
+The full 10-case public sample pack is in `BUP_CSE_FEST_2026_Preli_Public_Sample_Cases.json`
+(also mirrored at `tests/data/public_sample_cases.json`, used by the automated test suite).
 Response follows the exact `directive_interpretation` / `hourly_plan` schema from the Problem
 Statement (Sec 10).
 
