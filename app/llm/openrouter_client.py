@@ -23,6 +23,7 @@ class OpenRouterInterpreter(LLMInterpreter):
         base_url: str,
         model: str,
         timeout_seconds: float,
+        max_tokens: int = 1024,
         site_url: str = "",
         site_name: str = "",
     ) -> None:
@@ -33,6 +34,7 @@ class OpenRouterInterpreter(LLMInterpreter):
         # interpret(), so GET /health and misconfigured-but-degraded
         # POST /optimize-energy responses both stay controlled.
         self._model = model
+        self._max_tokens = max_tokens
         self._configured = bool(api_key) and bool(model)
         self._client = OpenAI(api_key=api_key or "unset", base_url=base_url, timeout=timeout_seconds)
         self._extra_headers = {}
@@ -48,6 +50,7 @@ class OpenRouterInterpreter(LLMInterpreter):
             response = self._client.chat.completions.create(
                 model=self._model,
                 temperature=0,
+                max_tokens=self._max_tokens,
                 response_format={"type": "json_object"},
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},

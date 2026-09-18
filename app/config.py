@@ -15,6 +15,7 @@ class Settings:
     openrouter_site_url: str
     openrouter_site_name: str
     llm_timeout_seconds: float
+    llm_max_tokens: int
     llm_failure_mode: str
     solver_backend: str
     port: int
@@ -33,6 +34,7 @@ def load_settings() -> Settings:
         openrouter_site_url=os.getenv("OPENROUTER_SITE_URL", ""),
         openrouter_site_name=os.getenv("OPENROUTER_SITE_NAME", "GridWise LLM"),
         llm_timeout_seconds=float(os.getenv("LLM_TIMEOUT_SECONDS", "15")),
+        llm_max_tokens=int(os.getenv("LLM_MAX_TOKENS", "1024")),
         llm_failure_mode=_bool_env("LLM_FAILURE_MODE", "degrade"),
         solver_backend=os.getenv("SOLVER_BACKEND", "highs").strip().lower(),
         port=int(os.getenv("PORT", "8000")),

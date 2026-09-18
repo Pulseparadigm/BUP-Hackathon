@@ -12,6 +12,7 @@ def build_interpreter(cfg: Settings) -> LLMInterpreter:
             base_url=cfg.openrouter_base_url,
             model=cfg.openrouter_model,
             timeout_seconds=cfg.llm_timeout_seconds,
+            max_tokens=cfg.llm_max_tokens,
             site_url=cfg.openrouter_site_url,
             site_name=cfg.openrouter_site_name,
         )
