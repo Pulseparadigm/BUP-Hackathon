@@ -38,7 +38,16 @@ class OpenRouterInterpreter(LLMInterpreter):
         self._max_tokens = max_tokens
         self._reasoning_max_tokens = reasoning_max_tokens
         self._configured = bool(api_key) and bool(model)
-        self._client = OpenAI(api_key=api_key or "unset", base_url=base_url, timeout=timeout_seconds)
+        # max_retries=0: the openai SDK defaults to 2 automatic retries on
+        # timeout/5xx, which can silently multiply a single slow call into
+        # up to ~3x timeout_seconds of wall-clock time -- enough to blow
+        # past the judge's 30s hard cutoff on an unlucky request. interpret()
+        # already has a fast, safe fallback (LLM_FAILURE_MODE=degrade -> a
+        # single failed attempt just downgrades that request's notes to
+        # no_op instead of paying for a retry that risks the whole request.
+        self._client = OpenAI(
+            api_key=api_key or "unset", base_url=base_url, timeout=timeout_seconds, max_retries=0
+        )
         self._extra_headers = {}
         if site_url:
             self._extra_headers["HTTP-Referer"] = site_url
