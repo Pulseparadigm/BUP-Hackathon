@@ -1,21 +1,36 @@
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class HourEntry(BaseModel):
     hour: int = Field(ge=0, le=23)
-    demand_kwh: float = Field(ge=0)
-    solar_kwh: float = Field(ge=0)
-    tariff_bdt_per_kwh: float = Field(ge=0)
+    demand_kwh: float = Field(ge=0, allow_inf_nan=False)
+    solar_kwh: float = Field(ge=0, allow_inf_nan=False)
+    tariff_bdt_per_kwh: float = Field(ge=0, allow_inf_nan=False)
 
 
 class Battery(BaseModel):
-    capacity_kwh: float = Field(gt=0)
-    initial_energy_kwh: float = Field(ge=0)
-    minimum_energy_kwh: float = Field(ge=0)
-    max_charge_kwh_per_hour: float = Field(ge=0)
-    max_discharge_kwh_per_hour: float = Field(ge=0)
+    # capacity_kwh allows 0: a zero-capacity battery is a valid degenerate
+    # case (the optimizer forces net flow to 0 every hour and just solves
+    # grid+solar dispatch), not a malformed request.
+    capacity_kwh: float = Field(ge=0, allow_inf_nan=False)
+    initial_energy_kwh: float = Field(ge=0, allow_inf_nan=False)
+    minimum_energy_kwh: float = Field(ge=0, allow_inf_nan=False)
+    max_charge_kwh_per_hour: float = Field(ge=0, allow_inf_nan=False)
+    max_discharge_kwh_per_hour: float = Field(ge=0, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def _consistent_energy_bounds(self) -> "Battery":
+        # Without this, a self-contradictory battery (e.g. minimum reserve
+        # above capacity) isn't rejected here -- it reaches the LP as an
+        # infeasible problem, and OptimizationInfeasibleError turns it into
+        # a 500 instead of a clean 400 for what is actually a bad request.
+        if self.minimum_energy_kwh > self.capacity_kwh:
+            raise ValueError("minimum_energy_kwh must not exceed capacity_kwh")
+        if not (self.minimum_energy_kwh <= self.initial_energy_kwh <= self.capacity_kwh):
+            raise ValueError("initial_energy_kwh must be between minimum_energy_kwh and capacity_kwh")
+        return self
 
 
 class OptimizeRequest(BaseModel):

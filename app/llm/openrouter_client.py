@@ -24,6 +24,7 @@ class OpenRouterInterpreter(LLMInterpreter):
         model: str,
         timeout_seconds: float,
         max_tokens: int = 1024,
+        reasoning_max_tokens: int = 0,
         site_url: str = "",
         site_name: str = "",
     ) -> None:
@@ -35,6 +36,7 @@ class OpenRouterInterpreter(LLMInterpreter):
         # POST /optimize-energy responses both stay controlled.
         self._model = model
         self._max_tokens = max_tokens
+        self._reasoning_max_tokens = reasoning_max_tokens
         self._configured = bool(api_key) and bool(model)
         self._client = OpenAI(api_key=api_key or "unset", base_url=base_url, timeout=timeout_seconds)
         self._extra_headers = {}
@@ -46,6 +48,15 @@ class OpenRouterInterpreter(LLMInterpreter):
     def interpret(self, operator_notes: list[str]) -> Any:
         if not self._configured:
             raise LLMInterpreterError("OPENROUTER_API_KEY / OPENROUTER_MODEL is not configured")
+        extra_body = {}
+        if self._reasoning_max_tokens > 0:
+            # Some OpenRouter models (e.g. Qwen3's thinking mode) spend an
+            # unbounded number of completion tokens on internal reasoning
+            # before writing the actual answer. Without a separate reasoning
+            # budget, a hard note can burn the entire max_tokens on reasoning
+            # alone (finish_reason="length", content=""), which otherwise
+            # looks identical to a real provider failure.
+            extra_body["reasoning"] = {"max_tokens": self._reasoning_max_tokens}
         try:
             response = self._client.chat.completions.create(
                 model=self._model,
@@ -57,6 +68,7 @@ class OpenRouterInterpreter(LLMInterpreter):
                     {"role": "user", "content": build_user_prompt(operator_notes)},
                 ],
                 extra_headers=self._extra_headers or None,
+                extra_body=extra_body or None,
             )
         except (APITimeoutError, APIError) as exc:
             raise LLMInterpreterError(f"OpenRouter call failed: {exc}") from exc

@@ -1,4 +1,6 @@
 import logging
+import math
+from typing import Any
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -18,9 +20,31 @@ logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="GridWise LLM Energy Optimizer")
 
 
+def _json_safe(value: Any) -> Any:
+    """Makes pydantic's exc.errors() safe for JSONResponse (allow_nan=False).
+
+    Two shapes it produces aren't natively JSON-serializable: a custom
+    @field_validator's raised ValueError lands verbatim in error['ctx']['error'],
+    and an out-of-range float (NaN/Infinity) in the rejected payload gets echoed
+    back verbatim in error['input']. Either one previously crashed this handler
+    itself, turning an intended 400 into an unhandled 500.
+    """
+    if isinstance(value, BaseException):
+        return str(value)
+    if isinstance(value, float) and not math.isfinite(value):
+        return str(value)
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    return value
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
-    return JSONResponse(status_code=400, content={"error": "malformed_request", "detail": exc.errors()})
+    return JSONResponse(
+        status_code=400, content={"error": "malformed_request", "detail": _json_safe(exc.errors())}
+    )
 
 
 @app.exception_handler(Exception)
